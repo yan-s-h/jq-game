@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat&display=swap" rel="stylesheet">
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'
+    integrity='sha512-pumBsjNRGGqkPzKHndZMaAG+bir374sORyzM3uulLV14lN5LyykqNk8eEeUlUkB3U0M4FApyaHraT65ihJhDpQ=='
+    crossorigin='anonymous'></script>
+
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #game {
+      width: 500px;
+      height: 500px;
+      background-color: black;
+      overflow: hidden;
+      position: relative;
+      margin: auto;
+      vertical-align: bottom;
+      user-select: none;
+      -webkit-user-drag: none;
+      color: white;
+      border: lightgray 1px solid;
+    }
+
+    #player {
+      height: 15px;
+      width: 60px;
+      background-color: white;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      pointer-events: none;
+      transition: background-color 0.1s ease;
+    }
+
+    .bullets {
+      width: 7.5px;
+      height: 15px;
+      background-color: white;
+      position: absolute;
+    }
+
+    .enemies {
+      height: 15px;
+      width: 60px;
+      position: absolute;
+    }
+
+    .enemyBullets {
+      width: 7.5px;
+      height: 15px;
+      background-color: white;
+      position: absolute;
+    }
+
+    p {
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="game">
+    <span>Score: <span id="text-score">0</span></span><br>
+    <span>Lives: <span id="text-lives">0</span></span><br>
+    <span>Player Name: <span id="text-highscorename">None</span></span><br>
+    <span>Record: <span id="text-highscore">0</span></span><br>
+    <div id="player"></div>
+  </div>
+  <p><input type="button" value="Start" id="btn-start"></p>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.4/jquery.min.js'
+    integrity='sha512-pumBsjNRGGqkPzKHndZMaAG+bir374sORyzM3uulLV14lN5LyykqNk8eEeUlUkB3U0M4FApyaHraT65ihJhDpQ=='
+    crossorigin='anonymous'></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <script>
+
+    let lives = 0
+    let timer = 0
+    let timerQ = 0
+    let score = 0
+    const highscore = localStorage.shoot ? JSON.parse(localStorage.shoot) : { name: 'None', score: 0 }
+    $('#text-highscorename').text(highscore.name)
+    $('#text-highscore').text(highscore.score)
+
+    $('#btn-start').click(function () {
+      // 停用開始按鈕
+      $(this).attr('disabled', true)
+      // 重設
+      lives = 3
+      $('#text-lives').text(lives)
+      // 開始遊戲
+      // $('#player').addClass('white')
+
+      timer = setInterval(function () {
+        // 隨機 1~10
+        const random = Math.ceil(Math.random() * 10)
+        const colors = ['#FF0000', '#FF8C00', '#FFFF00', '#00FF00', '#00BFFF', '#0000FF', '#9400D3']
+        const randomColors = Math.round(Math.random() * 6)
+        // 如果隨機數字 > 5 且場上不超過 5 個才產生
+        if (random > 5 && $('.enemies').length < 15) {
+          // 隨機位置
+          const top = Math.round(Math.random() * 100) + 'px'
+          const left = Math.round(Math.random() * 440) + 'px'
+          // 產生
+          const enemies = $(`<div class="enemies" style="top: ${top}; left: ${left}"></div>`)
+          $('#game').append(enemies)
+          enemies.css('background-color', colors[randomColors])
+          moveRight(enemies)
+        }
+        if (random < 5 && $('.enemies').length < 15) {
+          // 隨機位置
+          const top = Math.round(Math.random() * 100) + 'px'
+          const left = Math.round(Math.random() * 440) + 'px'
+
+          // 產生
+          const enemies = $(`<div class="enemies" style="top: ${top}; left: ${left}"></div>`)
+          enemies.css('background-color', colors[randomColors])
+          $('#game').append(enemies)
+          moveLeft(enemies)
+        }
+
+        $('.enemies').each(function () {
+
+          const top = $(this).css('top')
+          const left = parseInt($(this).css('left')) + 25
+          const color = $(this).css('background-color')
+          const enemyBullets = $(`<div class="enemyBullets" style="top: ${top}; left: ${left}px;background-color:${color}"></div>`)
+          if (parseInt(left) > 25 && parseInt(left) <= 465 && $('.enemyBullets').length < 100) {
+            $('#game').append(enemyBullets)
+            moveEB(enemyBullets)
+          }
+        })
+      }, 950)
+
+      timerQ = setInterval(function () {
+        handleCollision();
+        handlePlayerColor();
+        handleAttack();
+        if (lives < 1) {
+          $('#text-lives').text(0)
+          clearInterval(timer)
+          clearInterval(timerQ)
+          $('#game').unbind()
+          $('.enemies').remove()
+          $('.enemyBullets').remove()
+          $('#btn-start').attr('disabled', false)
+          if (score > highscore.score) {
+            Swal.fire({
+              icon: 'info',
+              title: 'Game Over',
+              text: `You set a record!
+              You got ${score} points.`,
+              input: 'text',
+              inputPlaceholder: 'Your Name',
+              inputAttributes: {
+                required: true
+              },
+              validationMessage: 'Name is required.',
+              allowOutsideClick: false,
+              allowEscapeKey: false
+            }).then(function (result) {
+              highscore.name = result.value
+              highscore.score = score
+              $('#text-highscorename').text(highscore.name)
+              $('#text-highscore').text(highscore.score)
+              localStorage.shoot = JSON.stringify(highscore)
+            })
+
+          } else {
+            Swal.fire({
+              icon: 'info',
+              title: 'Game Over',
+              text: `You got ${score} points.`
+            })
+          }
+        }
+
+      }, 10)
+
+
+
+      $('#game').on('mousemove', function (event) {
+        if (event.offsetX > 20 && event.offsetX < 480) {
+          $('#player').css('left', event.offsetX - 30 + 'px')
+        }
+      })
+
+      $('#game').on('click', function (event) {
+        const left = event.offsetX
+        const bullets = $(`<div class="bullets" style="top: 470px; left: ${left}px;"></div>`)
+        if ($('.bullets').length < 5) {
+          $('#game').append(bullets)
+          moveB(bullets)
+        }
+      })
+
+      function moveB(bullets) {
+        bullets.animate({
+          top: '-=8px'
+        }, 50, function () {
+          moveB(bullets)
+        })
+      }
+    })
+
+    function moveEB(enemyBullets) {
+      enemyBullets.animate({
+        top: '500px'
+      }, Math.random() * 1000 + 1000, function () {
+        $(this).remove()
+      })
+    }
+
+    function moveRight(enemies) {
+      enemies.animate({
+        left: '440px', top: '+=4px'
+      }, Math.random() * 2000 + 1000, function () {
+        moveLeft(enemies)
+      })
+    }
+
+    function moveLeft(enemies) {
+      enemies.animate({
+        left: '0px', top: '+=4px'
+      }, Math.random() * 2000 + 1000, function () {
+        moveRight(enemies)
+      })
+    }
+
+    function handleCollision() {
+      $('.enemyBullets').each(function () {
+        const bulletTop = parseInt($(this).css('top'));
+        const bulletLeft = parseInt($(this).css('left'));
+        const playerTop = parseInt($('#player').css('top'));
+        const playerLeft = parseInt($('#player').css('left'));
+
+        if (
+          bulletTop >= playerTop &&
+          bulletTop <= playerTop + 5 &&
+          bulletLeft >= playerLeft &&
+          bulletLeft <= playerLeft + 60) {
+          // Reduce lives
+          lives--;
+          $('#text-lives').text(lives);
+          // Change player's background color to red
+          $('#player').css('background-color', 'red');
+          // Remove the bullet from the game
+          $(this).remove();
+        }
+      });
+    }
+    function handleAttack() {
+      $('.bullets').each(function () {
+        const bulletTop = parseInt($(this).css('top'));
+        const bulletLeft = parseInt($(this).css('left'));
+        if (bulletTop < 0) { $(this).remove() }
+        $('.enemies').each(function () {
+          const enemyTop = parseInt($(this).css('top'));
+          const enemyLeft = parseInt($(this).css('left'));
+
+          if (
+            bulletTop >= enemyTop &&
+            bulletTop <= enemyTop + 15 &&
+            bulletLeft >= enemyLeft &&
+            bulletLeft <= enemyLeft + 60) {
+
+            score += 1;
+            $('#text-score').text(score);
+            $(this)
+            $(this).stop().hide("explode", { pieces: 36 }, 250, function () {
+              $(this).remove()
+            })
+
+          }
+        })
+      })
+    }
+
+    function handlePlayerColor() {
+      if ($('#player').css('background-color') === 'rgb(255, 0, 0)') {
+        $('#player').css('background-color', 'white');
+      }
+    }
+
+
+
+
+  </script>
+</body>
+
+</html>
